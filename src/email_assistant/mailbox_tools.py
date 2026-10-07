@@ -52,7 +52,7 @@ class MailboxTools:
         else:
             if search and (received_after or received_before):
                 raise ValueError('Use date filters separately from search, or put dates in the search expression.')
-            query = {'$top': str(limit), '$select': 'id,subject,from,receivedDateTime,webLink' +
+            query = {'$top': str(limit), '$select': 'id,subject,from,sentDateTime,receivedDateTime,webLink' +
                      (',body' if include_bodies else '')}
             if search:
                 query['$search'] = json.dumps(search)
@@ -80,7 +80,7 @@ class MailboxTools:
         if not message_id or type(body_offset) is not int or body_offset < 0:
             raise ValueError('Supply a message ID and a nonnegative body offset.')
         message = self.graph.get(GRAPH + '/me/messages/' + quote(message_id, safe='') +
-                                 '?$select=id,subject,from,body,receivedDateTime,webLink')
+                                 '?$select=id,subject,from,body,sentDateTime,receivedDateTime,webLink')
         return self.body(message, 16000, body_offset)
 
     def mailbox_status(self) -> dict:

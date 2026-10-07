@@ -19,6 +19,7 @@ class MailboxToolTests(unittest.TestCase):
             received_before='2026-10-08T00:00:00-05:00', include_bodies=True, limit=30)
         query = parse_qs(urlparse(graph.get.call_args.args[0]).query)
         self.assertEqual(query['$filter'], ['receivedDateTime ge 2026-10-07T05:00:00Z and receivedDateTime lt 2026-10-08T05:00:00Z'])
+        self.assertIn('sentDateTime', query['$select'][0])
         self.assertTrue(result['messages'][0]['truncated'])
         self.assertEqual(len(result['messages'][0]['body']), 4000)
         tools.list_messages(next_link=result['next_link'])
@@ -33,6 +34,7 @@ class MailboxToolTests(unittest.TestCase):
         graph.get.return_value = {'body': {'content': 'a' * 16000 + 'end'}}
         result = tools.read_message('a/b+c', body_offset=16000)
         self.assertIn('/messages/a%2Fb%2Bc?', graph.get.call_args.args[0])
+        self.assertIn('sentDateTime', parse_qs(urlparse(graph.get.call_args.args[0]).query)['$select'][0])
         self.assertEqual(result['body'], 'end')
         self.assertEqual(result['body_length'], 16003)
 

@@ -56,6 +56,25 @@ class TelegramTests(unittest.TestCase):
         self.assertEqual(self.telegram.session.post.call_args.args[0],
                          self.telegram.base + 'sendMessage')
 
+    def test_email_alert_is_compact_and_omits_outlook_link(self):
+        conversation = Mock()
+        conversation.respond.return_value = 'The meeting is tomorrow.'
+        assistant = self.assistant(conversation)
+        with patch.object(self.telegram, 'send') as send:
+            assistant.alert({
+                'id': 'message-1', 'subject': 'Project update', 'webLink': 'https://outlook.example/message',
+                'from': {'emailAddress': {'address': 'person@example.com'}},
+            })
+        prompt = conversation.respond.call_args.args[0]
+        self.assertIn('RSVP', prompt)
+        self.assertIn('join link', prompt)
+        self.assertIn('do not open them', prompt)
+        self.assertIn('against the date of the text where', prompt)
+        self.assertIn('sentDateTime', prompt)
+        self.assertIn('exact date is unclear', prompt)
+        send.assert_called_once_with('Project update\nFrom: person@example.com\n\nThe meeting is tomorrow.')
+        self.assertNotIn('outlook', send.call_args.args[0].lower())
+
     def test_telegram_network_error_does_not_expose_token(self):
         self.telegram.base = 'https://api.telegram.org/botSECRET/'
         self.telegram.session.post.side_effect = RuntimeError('URL includes SECRET')
