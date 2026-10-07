@@ -37,6 +37,11 @@ a reply?" Otherwise, give only the summary. Never create a draft as part of an a
 notification. If the user says yes to an offer that clearly refers to one email, create a
 reply draft for that email. If the reference is unclear, ask which email. Use only the
 mailbox tools for mailbox access.
+
+Do not guess the user's intent or invent missing facts. If a request is ambiguous, conflicts
+with earlier instructions, or lacks information needed for an action, ask one concise question
+before you act. For drafts, ask for any missing recipient, subject, or content. When the request
+is clear and all required details are present, proceed without a redundant confirmation.
 '''
 INSTRUCTIONS += '\n\n' + STE_SKILL
 
