@@ -4,7 +4,7 @@ A local email assistant for an `@illinois.edu` Outlook/Microsoft 365 account. Us
 
 ## Local setup
 
-Copy `.env.example` to `.env` (`cp .env.example .env`), then fill in the private `.env` file with your full `MAIL_EMAIL`, Microsoft Entra application `MS_CLIENT_ID`, and optionally `MS_TENANT_ID`. Environment variables override `.env`, which overrides optional legacy `config.json` values. `.env` is ignored by Git.
+Create an empty private `.env` file with `touch .env`, then add the settings you need from `.env.example`, including your full `MAIL_EMAIL` and Microsoft Entra application `MS_CLIENT_ID`; add `MS_TENANT_ID` if needed. Find the client ID on your app's Overview page in the [Microsoft Entra admin center](https://entra.microsoft.com) under **App registrations**. Environment variables override `.env`, which overrides optional legacy `config.json` values. `.env` is ignored by Git.
 
 Use an approved public desktop/mobile Entra application with redirect URI `http://localhost` and delegated Graph permissions `User.Read` and `Mail.ReadWrite`. This permission is needed for draft creation; the assistant has no email-sending or forwarding feature. If app registration or consent is blocked, ask university IT for an approved application.
 
@@ -40,7 +40,7 @@ References: [Microsoft browser sign-in](https://learn.microsoft.com/en-us/entra/
 
 The assistant runs locally on your Mac. Configure Telegram, WhatsApp, or both for chat and new-mail alerts. Your Mac must remain awake and the process must remain running. Email information requested in chat is transmitted to the configured private chat channel.
 
-1. To use Telegram, create a bot with [@BotFather](https://t.me/BotFather), set `TELEGRAM_BOT_TOKEN` in `.env`, send `/start` to it privately, and run:
+1. To use Telegram, create a bot with [@BotFather](https://t.me/BotFather), set `TELEGRAM_BOT_TOKEN` in `.env`, stop any running assistant process, send `/start` to the bot privately, and run:
 
 ```sh
 .venv/bin/assistant --setup

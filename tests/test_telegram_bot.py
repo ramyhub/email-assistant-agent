@@ -1,8 +1,10 @@
 import sqlite3
 import unittest
+from contextlib import redirect_stdout
+from io import StringIO
 from unittest.mock import Mock, patch
 
-from email_assistant.assistant import Assistant
+from email_assistant.assistant import Assistant, setup_telegram
 from email_assistant.telegram import TelegramChannel
 
 
@@ -60,6 +62,18 @@ class TelegramTests(unittest.TestCase):
         with self.assertRaises(RuntimeError) as caught:
             self.telegram.call('getUpdates', {})
         self.assertNotIn('SECRET', str(caught.exception))
+
+    def test_setup_discovers_private_chat_id_without_existing_chat_id(self):
+        telegram = Mock()
+        telegram.updates.return_value = [{
+            'message': {'chat': {'id': 123, 'type': 'private', 'username': 'user'}}}]
+        output = StringIO()
+        with patch('email_assistant.assistant.TelegramChannel', return_value=telegram) as channel:
+            with redirect_stdout(output):
+                setup_telegram({'telegram_bot_token': '123:token'})
+        channel.assert_called_once_with('123:token', None)
+        telegram.updates.assert_called_once_with()
+        self.assertIn('Private chat candidate: 123', output.getvalue())
 
 
 if __name__ == '__main__':

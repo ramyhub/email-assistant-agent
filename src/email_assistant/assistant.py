@@ -69,7 +69,7 @@ class Assistant:
 
 
 def setup_telegram(config):
-    telegram = TelegramChannel(config.get('telegram_bot_token'))
+    telegram = TelegramChannel(config.get('telegram_bot_token'), None)
     print('Send /start to your bot in a private Telegram chat, then run this command again.')
     found = set()
     for update in telegram.updates():
