@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "email-assistant-agent"
+version = "1.0.0"
+description = "Email Assistant Agent: Microsoft 365 email reading and unsent draft creation through chat"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+dependencies = [
+  "msal>=1.31,<2",
+  "requests>=2.32,<3",
+  "keyring>=25,<26",
+  "python-dotenv>=1,<2",
+  "mcp>=1.12,<2",
+]
+
+[project.scripts]
+assistant = "email_assistant.assistant:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+email_assistant = ["skills/simplified-technical-english/*.md", "skills/simplified-technical-english/LICENSE"]

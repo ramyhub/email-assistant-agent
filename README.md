@@ -1,80 +1,85 @@
-# Illinois mail monitoring agent
+# Email Assistant Agent
 
-A local, read-only Outlook/Microsoft 365 inbox monitor for an `@illinois.edu` account. Checks every five minutes, prints new mail as JSON, and shows macOS desktop notifications. First sync silently establishes a baseline; later syncs follow Microsoft Graph delta pagination and track message IDs across restarts. Messages are never sent, modified, or marked read. Filters inspect basic sender/subject metadata only.
+A local email assistant for an `@illinois.edu` Outlook/Microsoft 365 account. Use Telegram, WhatsApp, or both for conversational Codex requests and new-mail summaries. It checks for new mail every five minutes. First sync silently establishes a baseline; later syncs follow Microsoft Graph delta pagination and track message IDs across restarts. Existing mail is never sent, modified, or marked read. The assistant can create unsent new-message and reply drafts when explicitly asked. Filters inspect basic sender/subject metadata only.
 
 ## Local setup
 
 Copy `.env.example` to `.env` (`cp .env.example .env`), then fill in the private `.env` file with your full `MAIL_EMAIL`, Microsoft Entra application `MS_CLIENT_ID`, and optionally `MS_TENANT_ID`. Environment variables override `.env`, which overrides optional legacy `config.json` values. `.env` is ignored by Git.
 
-Use an approved public desktop/mobile Entra application with redirect URI `http://localhost` and delegated Graph permissions `User.Read` and `Mail.ReadBasic`. If app registration or consent is blocked, ask university IT for an approved application.
+Use an approved public desktop/mobile Entra application with redirect URI `http://localhost` and delegated Graph permissions `User.Read` and `Mail.ReadWrite`. This permission is needed for draft creation; the assistant has no email-sending or forwarding feature. If app registration or consent is blocked, ask university IT for an approved application.
 
 ```sh
 cd email-assistant-agent
 python3 -m venv .venv
-.venv/bin/python -m pip install -r requirements.txt
-.venv/bin/python monitor.py --login --once
-.venv/bin/python monitor.py
+.venv/bin/python -m pip install -e .
 ```
 
-Complete university sign-in and MFA in your browser. OAuth tokens are stored in the OS keyring (macOS Keychain), separate from `.env`. No mailbox password or client secret is needed. Renew sign-in with `--login --once` when requested.
+Complete university sign-in and MFA in your browser. OAuth tokens are stored in the OS keyring (macOS Keychain), separate from `.env`. No mailbox password or client secret is needed. Renew sign-in with `.venv/bin/assistant --login` when requested.
 
-The monitor runs on your computer until Ctrl+C. It pauses when the process exits or your computer sleeps. It is not installed as a background service. Initial setup requires browser sign-in from a terminal with access to macOS Keychain and the internet.
+The assistant runs on your computer until Ctrl+C. It pauses when the process exits or your computer sleeps. It is not installed as a background service. Initial setup requires browser sign-in from a terminal with access to macOS Keychain and the internet.
 
 ## Notifications and filters
 
-`DESKTOP_NOTIFICATIONS=true` enables local macOS notifications. Console output includes message ID, received time, sender, subject, and link. `POLL_SECONDS` defaults to 300 and must be at least 5.
+`POLL_SECONDS` defaults to 300 and must be at least 5.
 
 `MAIL_SENDERS` and `MAIL_KEYWORDS` accept comma-separated filters. Sender addresses match exactly; keywords match subjects case-insensitively. Entries within each filter are ORed; the two filters are ANDed. Empty filters match all. Changing filters does not replay historical messages.
 
-State is kept in `.state/<email>/monitor.sqlite3`, or under `STATE_DIR` if set. Keep it between runs to preserve duplicate tracking. A crash between displaying and recording a message can repeat one alert. Protect private state and logs.
+State is kept in `.state/<email>/assistant.sqlite3`, or under `STATE_DIR` if set. Keep it between runs to preserve duplicate tracking. A crash between displaying and recording a message can repeat one alert. Protect private state and logs.
 
-`--once` syncs once with diagnostics. `--env-file PATH` selects another environment file. After an expired Graph cursor, `--reset --once` establishes a fresh silent baseline; messages received during the gap will not generate alerts.
+`--env-file PATH` selects another environment file. After an expired Graph cursor, restart with `.venv/bin/assistant --reset` to establish a fresh silent baseline; messages received during the gap will not generate alerts.
 
 ## Verification
 
 ```sh
-python3 -m unittest discover -s tests -v
+.venv/bin/python -m unittest discover -s tests -v
 ```
 
 References: [Microsoft browser sign-in](https://learn.microsoft.com/en-us/entra/msal/python/getting-started/acquiring-tokens), [message delta](https://learn.microsoft.com/en-us/graph/api/message-delta).
 
-## Telegram email assistant
+## Chat setup
 
-The assistant runs locally on your Mac and uses Telegram for commands and new-mail alerts. Your Mac must remain awake and the process must remain running. Email information requested in Telegram is transmitted to your configured Telegram private chat.
+The assistant runs locally on your Mac. Configure Telegram, WhatsApp, or both for chat and new-mail alerts. Your Mac must remain awake and the process must remain running. Email information requested in chat is transmitted to the configured private chat channel.
 
-1. Open the official [@BotFather](https://t.me/BotFather) in Telegram, send `/newbot`, and follow its instructions. Put the token it gives you in `.env` as `TELEGRAM_BOT_TOKEN`. Do not share it in chat or commit it.
-2. Open your new bot's private chat and send `/start`. Stop the existing `monitor.py` process with Ctrl+C, then discover your chat ID:
-
-```sh
-.venv/bin/python telegram_assistant.py --setup
-```
-
-Verify the printed username/ID corresponds to your own private chat, and put that numeric ID in `.env` as `TELEGRAM_CHAT_ID`. The setup command does not read mail or send email information. Only this private chat's user can run commands; group chats are rejected.
-
-3. In your Microsoft Entra app, add **delegated** Graph `Mail.Read` permission alongside `User.Read`. The assistant needs this to read bodies. Complete any required university consent and sign in again:
+1. To use Telegram, create a bot with [@BotFather](https://t.me/BotFather), set `TELEGRAM_BOT_TOKEN` in `.env`, send `/start` to it privately, and run:
 
 ```sh
-.venv/bin/python telegram_assistant.py --login
+.venv/bin/assistant --setup
 ```
 
-Use `/help`, `/inbox`, `/search words`, `/read 1`, and `/status` in Telegram. `/read N` refers to the latest inbox/search result list; run the list command again after restarting. Search returns up to ten mailbox matches. Read displays up to 12,000 body characters. No email is sent or modified; AI summaries/replies are not implemented yet.
+Verify the displayed private chat ID is yours and put it in `.env` as `TELEGRAM_CHAT_ID`. Group chats are rejected.
 
-The assistant shares the monitor's baseline and message tracking. Existing mail is not replayed as alerts, including mail already processed by `monitor.py`. Failed Telegram alert delivery is retried; a crash or partial send can produce duplicate notifications. Polling and command offsets persist in the local SQLite state. Run one process only; the shared lock prevents the monitor and Telegram assistant running together. Telegram API errors are redacted to avoid exposing the bot token. If the bot already has a webhook or another polling process, remove/stop that configuration before using this local polling interface.
+2. To use WhatsApp, create a Meta app with the WhatsApp Business Platform Cloud API and set these values in `.env`: `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_APP_SECRET`, `WHATSAPP_VERIFY_TOKEN`, and `WHATSAPP_ALLOWED_SENDER`. Use the sender's international phone number with country code. Configure the Meta webhook callback as your public HTTPS URL ending in `/webhook`, with the same verify token, and subscribe to the `messages` field. The assistant listens on `127.0.0.1:8766`; expose that local port through an HTTPS tunnel or reverse proxy and set `WHATSAPP_WEBHOOK_PORT` if needed. Only the configured sender is accepted. The webhook verifies Meta's `X-Hub-Signature-256` before parsing messages.
 
-References: [Telegram bot creation](https://core.telegram.org/bots/features#botfather), [Telegram Bot API](https://core.telegram.org/bots/api), [Microsoft message access](https://learn.microsoft.com/en-us/graph/api/user-list-messages).
+Configure either channel, or both. When both are enabled they share one Codex conversation and receive new-mail alerts. WhatsApp replies use the Cloud API and require a valid business account, access token, and a recent user message under Meta's customer-service messaging window. The assistant does not send template messages or initiate WhatsApp conversations.
+
+3. If your Entra app currently has `Mail.Read`, replace it with **delegated** Graph `Mail.ReadWrite` alongside `User.Read`. Microsoft requires `Mail.ReadWrite` for draft operations. Complete any required university consent and sign in again:
+
+```sh
+.venv/bin/assistant --login
+```
+
+Chat naturally: “Find emails from my professor,” “Summarize the second one,” or “Suggest a reply asking for an extension.” To save one, explicitly ask to create a draft. You can also ask for a new draft with recipients, subject, and body. Every incoming chat message goes to Codex CLI, including `/help` and older slash commands. Only `/clear` is handled locally to start a new conversation. Drafts remain unsent in Outlook; the assistant never sends or forwards email.
+
+For each newly detected message that passes the filters, Codex reads that email and sends a concise summary with the sender, subject, and Outlook link to the configured chat channels. The first sync establishes a silent baseline; existing mail is not summarized retroactively. The assistant preserves mailbox tracking across restarts. Failed chat delivery or summary generation is logged; a crash or partial send can produce duplicate notifications. Polling and command offsets persist in local SQLite state. Run one process only; the account lock prevents multiple assistant processes running together. Channel API errors are redacted to avoid exposing credentials. If the Telegram bot already has a webhook or another polling process, remove/stop that configuration before using this local polling interface.
+
+References: [Telegram bot creation](https://core.telegram.org/bots/features#botfather), [Telegram Bot API](https://core.telegram.org/bots/api), [Meta WhatsApp webhook verification](https://whatsapp.github.io/WhatsApp-Nodejs-SDK/api-reference/webhooks/start/), [Meta WhatsApp send message](https://www.postman.com/meta/whatsapp-business-platform/request/8gvd47s/send-text-message), [Microsoft message access](https://learn.microsoft.com/en-us/graph/api/user-list-messages).
 
 ## Conversational Codex connection
 
-Ordinary Telegram messages now use the installed Codex CLI. For example: “Find emails from my professor,” “Summarize the second one,” or “Draft a polite reply asking for an extension.” Codex chooses bounded inbox/search/read operations; the Python application performs the actual Microsoft requests. Replies and drafts are returned in Telegram. Sending, archiving, deleting, or Outlook draft creation are not supported by this version.
+Run `codex login` in your terminal if the CLI is not signed in, install the dependencies above, then start `.venv/bin/assistant`. It starts one Codex CLI app-server and keeps it running alongside the configured chat channels. Each message becomes a new turn in the same conversation; Codex controls its own reasoning and tool calls. The conversation ID is saved in local SQLite state so it can resume after an assistant restart. `/clear` starts a fresh Codex conversation.
 
-Run `codex login` in your terminal if the CLI is not signed in, then restart `telegram_assistant.py`. Existing slash commands remain available. `/clear` clears the in-memory conversational context. Context remembers the last three exchanges and disappears when the process restarts. Requests are limited to six read/search steps and ten results per list. Email bodies are truncated to 16,000 characters per retrieval, and model requests time out after 120 seconds. Model requests currently block this single worker, so mail checks and other commands wait until they finish.
+The Codex session retains its retrieved email context. Codex also stores conversation history locally; `/clear` starts a fresh thread but does not delete earlier history. Email content needed to answer your request is processed by Codex/OpenAI, and answers are transmitted through the configured chat channel.
 
-Email content needed to answer your request is passed to Codex/OpenAI for processing, and the answer is sent through Telegram. The bridge does not pass the Telegram bot token or Microsoft credentials to the Codex child environment. Codex runs ephemerally in a temporary directory with read-only sandboxing, shell tools disabled, and user configuration excluded. The application accepts only structured inbox/search/read/answer actions and exposes no mailbox write operations. Email content is treated as untrusted data in the model instructions.
+The local mailbox MCP server provides three read tools and two explicit draft tools: `list_messages` (inbox or mailbox search, date filters, and pagination), `read_message` (body retrieval by ID), `mailbox_status`, `create_draft`, and `create_reply_draft`. Draft tools are used only when you ask to save/create a draft. Pages contain up to 30 messages; list bodies are limited to 4,000 characters, and individual reads return 16,000-character chunks with an offset for retrieving the rest. Codex chooses the queries and follows pagination as needed, using the supplied Mac local date/time for requests about today.
 
-This uses a separate local Codex CLI invocation, not this existing Codex app conversation. Access and usage limits depend on your Codex authentication. See [Codex non-interactive mode](https://developers.openai.com/codex/noninteractive).
+The bridge strips Telegram, WhatsApp, and Microsoft environment variables from the Codex child environment. The mailbox server independently uses the Microsoft token cache in the OS keyring and verifies the configured account. Codex runs in a temporary working directory with read-only sandboxing and shell tools disabled. The app-server uses your installed Codex login and profile. Email content is treated as untrusted data. Model turns time out after 300 seconds and block this single worker, so mail checks and other messages wait until the turn finishes.
 
-Daily triage: “What important emails from today need a reply?” can retrieve up to 30 of today's inbox messages with their bodies in one step, using your Mac's local timezone. It discloses when additional messages exist or text is truncated. List reviews can read ten bodies per step. After the tool budget is exhausted, the model gets a final answer-only turn to report what it found and remaining gaps.
+This uses a separate local Codex CLI conversation from the Codex app conversation. Access and usage limits depend on your Codex authentication. See [Codex non-interactive mode](https://developers.openai.com/codex/noninteractive) and [official OpenAI MCP documentation](https://learn.chatgpt.com/docs/extend/mcp?surface=cli).
 
-User constraint: this assistant must never send or forward email to anyone. Mail.Send permission and email-delivery tools must not be added. Reply suggestions remain text for the user to send manually.
+This assistant must never send or forward email to anyone. Do not add `Mail.Send` permission or email-delivery tools. Reply suggestions remain text previews unless you explicitly ask to save one as a draft.
 
-The Telegram assistant explicitly uses `gpt-6.1-sol` with `medium` reasoning effort for every Codex invocation. Restart the running process after changing this setting.
+The assistant explicitly uses `gpt-6-luna` with `low` reasoning effort for every Codex invocation. It applies the project's Simplified Technical English skill to Telegram and WhatsApp replies and automatic email summaries. Restart the running process after changing this setting.
+
+## Project layout
+
+The application uses a `src/` package layout. `assistant.py` owns application startup, shared conversation routing, and alerts, `codex_agent.py` manages the persistent Codex app-server, `mailbox_tools.py` exposes read and draft MCP tools, `mailbox.py` handles Microsoft Graph access and synchronization, `telegram.py` and `whatsapp.py` implement chat transports, and `config.py` loads local settings. Run it with the `assistant` command or `python -m email_assistant` from the project directory.

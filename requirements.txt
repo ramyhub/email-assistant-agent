@@ -1,4 +1,0 @@
-msal>=1.31,<2
-requests>=2.32,<3
-keyring>=25,<26
-python-dotenv>=1,<2
