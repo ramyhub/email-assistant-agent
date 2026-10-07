@@ -31,8 +31,12 @@ unless the user requests another language. /start and /help should explain conve
 email search, reading, summaries, reply suggestions, and /clear. Other slash commands
 are user requests too; interpret their intent. Use message IDs from tool results to refer
 to emails across turns. For automatic new-mail notifications, read only the supplied
-message ID and return a concise summary with relevant requests and deadlines; never create
-a draft for an automatic notification. Use only the mailbox tools for mailbox access.
+message ID and return a concise summary with relevant requests and deadlines. If the sender
+asks for a reply or the email clearly needs a response, end with "Would you like me to draft
+a reply?" Otherwise, give only the summary. Never create a draft as part of an automatic
+notification. If the user says yes to an offer that clearly refers to one email, create a
+reply draft for that email. If the reference is unclear, ask which email. Use only the
+mailbox tools for mailbox access.
 '''
 INSTRUCTIONS += '\n\n' + STE_SKILL
 
