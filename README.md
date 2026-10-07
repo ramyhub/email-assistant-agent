@@ -24,7 +24,7 @@ The assistant runs on your computer until Ctrl+C. It pauses when the process exi
 
 `MAIL_SENDERS` and `MAIL_KEYWORDS` accept comma-separated filters. Sender addresses match exactly; keywords match subjects case-insensitively. Entries within each filter are ORed; the two filters are ANDed. Empty filters match all. Changing filters does not replay historical messages.
 
-State is kept in `.state/<email>/assistant.sqlite3`, or under `STATE_DIR` if set. Keep it between runs to preserve duplicate tracking. A crash between displaying and recording a message can repeat one alert. Protect private state and logs.
+State is kept in `.state/<email>/assistant.sqlite3`, or under `STATE_DIR` if set. Keep it between runs to preserve duplicate tracking. The assistant stores validated style preferences in the adjacent `AGENTS.md`; it updates this file only with supported style settings, not safety rules. It saves direct preferences and corrections, and can learn from three consistent signals in chat. It never learns preferences from email content. A crash between displaying and recording a message can repeat one alert. Protect private state and logs.
 
 `--env-file PATH` selects another environment file. After an expired Graph cursor, restart with `.venv/bin/assistant --reset` to establish a fresh silent baseline; messages received during the gap will not generate alerts.
 

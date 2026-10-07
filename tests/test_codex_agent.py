@@ -13,6 +13,7 @@ class FakeProcess:
     def __init__(self, command, **kwargs):
         self.command = command
         self.kwargs = kwargs
+        self.requests = []
         self.output = queue.Queue()
         self.returncode = None
         self.stdout = iter(self._lines())
@@ -50,7 +51,9 @@ class FakeProcess:
             self.process = process
 
         def write(self, line):
-            self.process.respond(json.loads(line))
+            message = json.loads(line)
+            self.process.requests.append(message)
+            self.process.respond(message)
 
         def flush(self):
             pass
@@ -107,6 +110,31 @@ class CodexAgentTests(unittest.TestCase):
             self.assertEqual(conversation.respond('Continue.'), 'A clear reply.')
         finally:
             conversation.close()
+
+    def test_saved_preferences_are_available_on_each_turn(self):
+        from tempfile import TemporaryDirectory
+        from email_assistant.preferences import UserPreferences
+
+        with TemporaryDirectory() as directory:
+            preference_path = Path(directory) / 'AGENTS.md'
+            UserPreferences(preference_path).save('response_length', 'concise')
+            process = None
+
+            def popen(command, **kwargs):
+                nonlocal process
+                process = FakeProcess(command, **kwargs)
+                return process
+
+            with patch('email_assistant.codex_agent.shutil.which', return_value='/usr/bin/codex'):
+                conversation = Conversation({'email': 'test@example.edu', 'client_id': 'app',
+                                             'preferences_path': str(preference_path)}, popen=popen)
+            try:
+                conversation.respond('Summarize this.')
+                turn = next(item for item in process.requests if item.get('method') == 'turn/start')
+                self.assertIn('Response length: concise', turn['params']['input'][0]['text'])
+                self.assertIn('save_user_preference', ' '.join(process.command))
+            finally:
+                conversation.close()
 
 
 if __name__ == '__main__':

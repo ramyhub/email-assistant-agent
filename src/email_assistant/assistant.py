@@ -19,6 +19,10 @@ class Assistant:
         from .codex_agent import Conversation
         self.channels = channels
         self.db = db
+        database_path = db.execute('PRAGMA database_list').fetchone()[2]
+        if database_path:
+            config = dict(config)
+            config['preferences_path'] = str(Path(database_path).resolve().with_name('AGENTS.md'))
         saved = db.execute("SELECT value FROM state WHERE key='codex_thread_id'").fetchone()
         self.conversation = Conversation(config, saved_thread_id=saved[0] if saved else None,
                                          save_thread_id=self._save_thread_id)
